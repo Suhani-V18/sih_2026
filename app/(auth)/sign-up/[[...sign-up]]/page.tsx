@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { SignUp } from "@clerk/nextjs";
-import { Users, FileSpreadsheet, GraduationCap, Building2 } from "lucide-react";
+import Link from "next/link";
+import { Users, FileSpreadsheet, GraduationCap, Building2, Handshake } from "lucide-react";
 import type { RegistrationRole } from "@/lib/validators";
 import { DEMO_MODE_ENABLED, getDemoEmailFor } from "@/lib/demo-allowlist";
 
@@ -16,28 +17,28 @@ const ROLES: {
   {
     id: "citizen",
     label: "Citizen",
-    description: "Report a local issue and track its resolution.",
+    description: "Report a local civic issue and track its resolution.",
     icon: Users,
     accent: "indigo",
   },
   {
     id: "mc_panchayat",
     label: "MC / Panchayat",
-    description: "Official sign-in for municipal or panchayat staff.",
+    description: "Official portal for municipal or panchayat staff.",
     icon: FileSpreadsheet,
     accent: "sky",
   },
   {
     id: "university",
-    label: "University",
-    description: "Faculty mentor sign-up for R&D teams.",
+    label: "University / R&D",
+    description: "Faculty mentor & student team sign-up.",
     icon: GraduationCap,
     accent: "purple",
   },
   {
     id: "company",
     label: "Company / CSR",
-    description: "Register your organisation to fund projects.",
+    description: "Register your organization to sponsor & fund projects.",
     icon: Building2,
     accent: "emerald",
   },
@@ -58,7 +59,7 @@ export default function SignUpPage() {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 py-16">
         <button
           onClick={() => setSelectedRole(null)}
-          className="text-sm text-slate-400 hover:text-white mb-6 self-start max-w-sm mx-auto w-full"
+          className="text-sm text-slate-400 hover:text-white mb-6 self-start max-w-sm mx-auto w-full cursor-pointer transition-colors"
         >
           ← Choose a different role
         </button>
@@ -69,8 +70,8 @@ export default function SignUpPage() {
           forceRedirectUrl={`/onboarding?role=${selectedRole}`}
           appearance={{
             elements: {
-              rootBox: "mx-auto",
-              card: "bg-slate-900 border border-slate-800 shadow-2xl",
+              rootBox: "mx-auto w-full max-w-md",
+              card: "bg-slate-900 border border-slate-800 shadow-2xl rounded-2xl",
             },
           }}
         />
@@ -80,16 +81,25 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center px-4 py-16">
-      <div className="max-w-2xl text-center mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
-          Who's signing up?
+      <div className="max-w-2xl text-center mb-10">
+        <Link href="/" className="inline-flex items-center gap-2 group mb-4">
+          <div className="bg-indigo-600 group-hover:bg-indigo-500 p-2.5 rounded-2xl text-white shadow-lg shadow-indigo-500/20 transition-all">
+            <Handshake className="w-6 h-6" />
+          </div>
+        </Link>
+        <br />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-3">
+          Sahyog Platform
+        </div>
+        <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-2 tracking-tight">
+          Welcome to Sahyog Platform!
         </h1>
         <p className="text-slate-400 text-sm md:text-base">
-          Your role decides what you'll see next — pick the one that fits.
+          Who's signing up? Select your role to get started.
         </p>
         {DEMO_MODE_ENABLED && (
-          <p className="mt-3 inline-block text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1">
-            Demo mode is ON — validation is relaxed only for the accounts listed below.
+          <p className="mt-3 inline-block text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-3.5 py-1">
+            Demo mode is active — validation is relaxed for presentation accounts.
           </p>
         )}
       </div>
@@ -103,7 +113,7 @@ export default function SignUpPage() {
             <button
               key={role.id}
               onClick={() => setSelectedRole(role.id)}
-              className={`text-left bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:${accent.border} transition-all group`}
+              className={`text-left bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:${accent.border} transition-all group cursor-pointer`}
             >
               <div
                 className={`w-12 h-12 rounded-xl ${accent.bg} border ${accent.border} ${accent.text} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}

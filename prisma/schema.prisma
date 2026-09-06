@@ -1,0 +1,467 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum AreaType {
+  RURAL
+  URBAN
+}
+// =====================================================================
+// ENUMS
+// =====================================================================
+
+enum SubmitterType {
+  CITIZEN
+  LOCAL_BODY
+}
+
+enum BodyType {
+  PANCHAYAT
+  MUNICIPAL_CORPORATION
+}
+
+enum JurisdictionMatchStatus {
+  MATCHED
+  UNMATCHED
+}
+
+enum DescriptionType {
+  AUDIO
+  TEXT
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum ProblemStatus {
+  PENDING
+  PENDING_REVIEW
+  VALIDATED
+  REJECTED
+  MERGED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum CompanyIdType {
+  GSTIN
+  CIN
+  UDYAM
+}
+
+enum MatchStatus {
+  SUGGESTED
+  ACCEPTED
+  REJECTED
+}
+
+enum ProjectStage {
+  ACCEPTED
+  GATE1_PROPOSAL
+  GATE2_PITCH
+  FUNDED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MilestoneStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  FLAGGED
+  RELEASED
+}
+
+// =====================================================================
+// 1. CITIZENS
+// =====================================================================
+
+model Citizen {
+  id          BigInt   @id @default(autoincrement())
+  clerkUserId String   @unique @map("clerk_user_id")
+  name        String
+  phone       String?
+  email       String?
+  trustScore  Int      @default(50) @map("trust_score")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  problems Problem[] @relation("CitizenProblems")
+
+  @@map("citizens")
+}
+
+// =====================================================================
+// 2. LOCAL BODIES (Gram Panchayat / Municipal Corporation)
+// =====================================================================
+
+model LocalBody {
+  id       BigInt   @id @default(autoincrement())
+  bodyCode String   @unique @map("body_code")
+  bodyType BodyType @map("body_type")
+  name     String
+
+  district String
+  block    String?
+  ward     String?
+
+  clerkUserId   String? @unique @map("clerk_user_id")
+  officialEmail String  @map("official_email")
+  lgdCode       String? @map("lgd_code")
+
+  isRegistered Boolean   @default(false) @map("is_registered")
+  registeredAt DateTime? @map("registered_at")
+
+  isModerator Boolean @default(false) @map("is_moderator")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  submittedProblems Problem[] @relation("BodySubmittedProblems")
+  matchedProblems   Problem[] @relation("BodyMatchedProblems")
+
+  @@index([district, block, ward])
+  @@map("local_bodies")
+}
+
+model JurisdictionDirectory {
+  id            BigInt   @id @default(autoincrement())
+  district      String
+  block         String?
+  ward          String?
+  bodyType      BodyType @map("body_type")
+  fallbackEmail String   @map("fallback_email")
+  sourceNote    String?  @map("source_note")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([district, block, ward, bodyType])
+  @@map("jurisdiction_directory")
+}
+
+// =====================================================================
+// 3. PROBLEMS (Citizen or Local Body submissions)
+// =====================================================================
+model Problem {
+  id          BigInt @id @default(autoincrement())
+  problemCode String @unique @map("problem_code")
+
+  submitterType     SubmitterType @map("submitter_type")
+  citizenId         BigInt?       @map("citizen_id")
+  citizen           Citizen?      @relation("CitizenProblems", fields: [citizenId], references: [id])
+  submittedByBodyId BigInt?       @map("submitted_by_body_id")
+  submittedByBody   LocalBody?    @relation("BodySubmittedProblems", fields: [submittedByBodyId], references: [id])
+
+  title String? // 👈 Made optional for voice input
+
+  descriptionType     DescriptionType @map("description_type")
+  descriptionText     String?         @map("description_text")
+  descriptionAudioUrl String?         @map("description_audio_url")
+  language            String          @default("en")
+
+  // Location fields
+  state       String?   @default("West Bengal")
+  district    String
+  areaType    AreaType? @default(URBAN) @map("area_type")
+  block       String?
+  ward        String?
+  village     String?
+  pincode     String?
+  lat         Float?
+  lng         Float?
+  addressText String?   @map("address_text")
+
+  jurisdictionMatchStatus JurisdictionMatchStatus @default(UNMATCHED) @map("jurisdiction_match_status")
+  matchedBodyId           BigInt?                 @map("matched_body_id")
+  matchedBody             LocalBody?              @relation("BodyMatchedProblems", fields: [matchedBodyId], references: [id])
+
+  aiCategory           String?  @map("ai_category")
+  aiSeverity           Int?     @map("ai_severity")
+  aiConfidence         Decimal? @map("ai_confidence") @db.Decimal(5, 4)
+  needsModeratorReview Boolean  @default(false) @map("needs_moderator_review")
+
+  mergedIntoProblemId BigInt?   @map("merged_into_problem_id")
+  mergedIntoProblem   Problem?  @relation("ProblemMerge", fields: [mergedIntoProblemId], references: [id])
+  mergedProblems      Problem[] @relation("ProblemMerge")
+
+  status ProblemStatus @default(PENDING)
+
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  media                     ProblemMedia[]
+  jurisdictionNotifications JurisdictionNotification[]
+  universityMatches         ProblemUniversityMatch[]
+  project                   Project?
+
+  @@index([status])
+  @@index([matchedBodyId])
+  @@index([district, block, ward])
+  @@index([citizenId])
+  @@index([submittedByBodyId])
+  @@index([needsModeratorReview])
+  @@map("problems")
+}
+model JurisdictionNotification {
+  id            BigInt   @id @default(autoincrement())
+  problemId     BigInt   @map("problem_id")
+  problem       Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  notifiedEmail String   @map("notified_email")
+  notifiedAt    DateTime @default(now()) @map("notified_at")
+
+  @@index([problemId])
+  @@map("jurisdiction_notifications")
+}
+
+model ProblemMedia {
+  id        BigInt    @id @default(autoincrement())
+  problemId BigInt    @map("problem_id")
+  problem   Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  mediaType MediaType @map("media_type")
+  url       String
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([problemId])
+  @@map("problem_media")
+}
+
+// =====================================================================
+// 4. UNIVERSITIES
+// =====================================================================
+
+model University {
+  id             BigInt @id @default(autoincrement())
+  universityCode String @unique @map("university_code")
+  name           String
+  emailDomain    String @unique @map("email_domain")
+
+  district String
+  lat      Float?
+  lng      Float?
+
+  officialEmail      String  @map("official_email")
+  registrationNumber String? @map("registration_number")
+
+  isRegistered Boolean   @default(false) @map("is_registered")
+  registeredAt DateTime? @map("registered_at")
+
+  trustScore Int @default(50) @map("trust_score")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  departments    UniversityDepartment[]
+  members        UniversityMember[]
+  problemMatches ProblemUniversityMatch[]
+  companyMatches UniversityCompanyMatch[]
+  projects       Project[]
+
+  @@map("universities")
+}
+
+model UniversityDepartment {
+  id                 BigInt     @id @default(autoincrement())
+  universityId       BigInt     @map("university_id")
+  university         University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  name               String
+  expertiseArea      String     @map("expertise_area")
+  specialtyCount     Int        @default(0) @map("specialty_count")
+  activeProjects     Int        @default(0) @map("active_projects")
+  successfulProjects Int        @default(0) @map("successful_projects")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  members        UniversityMember[]
+  problemMatches ProblemUniversityMatch[]
+  projects       Project[]
+
+  @@unique([universityId, name])
+  @@index([universityId])
+  @@map("university_departments")
+}
+
+model UniversityMember {
+  id           BigInt               @id @default(autoincrement())
+  universityId BigInt               @map("university_id")
+  university   University           @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departmentId BigInt               @map("department_id")
+  department   UniversityDepartment @relation(fields: [departmentId], references: [id])
+  clerkUserId  String               @unique @map("clerk_user_id")
+  name         String
+  designation  String?
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  @@index([universityId])
+  @@index([departmentId])
+  @@map("university_members")
+}
+
+// =====================================================================
+// 5. COMPANIES / STARTUPS
+// =====================================================================
+
+model Company {
+  id          BigInt @id @default(autoincrement())
+  companyCode String @unique @map("company_code")
+  name        String
+
+  domains            String[] @default([])
+  region             String
+  successfulProjects Int      @default(0) @map("successful_projects")
+
+  clerkUserId   String? @unique @map("clerk_user_id")
+  officialEmail String  @map("official_email")
+
+  companyIdType  CompanyIdType? @map("company_id_type")
+  companyIdValue String?        @map("company_id_value")
+
+  isRegistered Boolean   @default(false) @map("is_registered")
+  registeredAt DateTime? @map("registered_at")
+
+  trustScore Int @default(50) @map("trust_score")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  universityMatches UniversityCompanyMatch[]
+  fundings          ProjectFunding[]
+
+  @@index([region])
+  @@map("companies")
+}
+
+// =====================================================================
+// 6. AI-DRIVEN MATCHING
+// =====================================================================
+
+model ProblemUniversityMatch {
+  id           BigInt                @id @default(autoincrement())
+  problemId    BigInt                @map("problem_id")
+  problem      Problem               @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  universityId BigInt                @map("university_id")
+  university   University            @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  departmentId BigInt?               @map("department_id")
+  department   UniversityDepartment? @relation(fields: [departmentId], references: [id])
+
+  matchScore   Decimal     @map("match_score") @db.Decimal(5, 4)
+  matchReasons String[]    @default([]) @map("match_reasons")
+  status       MatchStatus @default(SUGGESTED)
+
+  suggestedAt DateTime  @default(now()) @map("suggested_at")
+  decidedAt   DateTime? @map("decided_at")
+
+  @@unique([problemId, universityId])
+  @@index([problemId])
+  @@index([universityId])
+  @@map("problem_university_matches")
+}
+
+model UniversityCompanyMatch {
+  id           BigInt     @id @default(autoincrement())
+  universityId BigInt     @map("university_id")
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  companyId    BigInt     @map("company_id")
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  matchScore   Decimal     @map("match_score") @db.Decimal(5, 4)
+  matchReasons String[]    @default([]) @map("match_reasons")
+  status       MatchStatus @default(SUGGESTED)
+
+  suggestedAt DateTime  @default(now()) @map("suggested_at")
+  decidedAt   DateTime? @map("decided_at")
+
+  @@unique([universityId, companyId])
+  @@index([universityId])
+  @@index([companyId])
+  @@map("university_company_matches")
+}
+
+// =====================================================================
+// 7. PROJECTS, MILESTONES, FUNDING
+// =====================================================================
+
+model Project {
+  id           BigInt                @id @default(autoincrement())
+  problemId    BigInt                @unique @map("problem_id")
+  problem      Problem               @relation(fields: [problemId], references: [id])
+  universityId BigInt                @map("university_id")
+  university   University            @relation(fields: [universityId], references: [id])
+  departmentId BigInt?               @map("department_id")
+  department   UniversityDepartment? @relation(fields: [departmentId], references: [id])
+
+  stage ProjectStage @default(ACCEPTED)
+
+  proposalText   String?  @map("proposal_text")
+  budgetEstimate Decimal? @map("budget_estimate")
+
+  pitchDeckUrl  String? @map("pitch_deck_url")
+  pitchVideoUrl String? @map("pitch_video_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  milestones Milestone[]
+  fundings   ProjectFunding[]
+  comments   ProjectComment[]
+
+  @@index([universityId])
+  @@map("projects")
+}
+
+model Milestone {
+  id        BigInt  @id @default(autoincrement())
+  projectId BigInt  @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title      String
+  amount     Decimal
+  orderIndex Int             @map("order_index")
+  status     MilestoneStatus @default(PENDING)
+
+  proofUrl        String? @map("proof_url")
+  mentorSignedOff Boolean @default(false) @map("mentor_signed_off")
+  companyVerified Boolean @default(false) @map("company_verified")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("milestones")
+}
+
+model ProjectFunding {
+  id        BigInt  @id @default(autoincrement())
+  projectId BigInt  @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id])
+  companyId BigInt  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
+
+  totalCommitted Decimal @map("total_committed")
+  releasedSoFar  Decimal @default(0) @map("released_so_far")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([projectId, companyId])
+  @@index([projectId])
+  @@index([companyId])
+  @@map("project_funding")
+}
+
+model ProjectComment {
+  id            BigInt   @id @default(autoincrement())
+  projectId     BigInt   @map("project_id")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorClerkId String   @map("author_clerk_id")
+  message       String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([projectId])
+  @@map("project_comments")
+}

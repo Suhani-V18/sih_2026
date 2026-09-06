@@ -19,7 +19,7 @@ const emptyField = (): FieldState => ({ value: "", touched: false });
 export default function OnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoaded } = useUser();
+  const { isLoaded } = useUser();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -28,7 +28,9 @@ export default function OnboardingPage() {
   const [fullName, setFullName] = useState(emptyField());
   const [phone, setPhone] = useState(emptyField());
   const [govEmail, setGovEmail] = useState(emptyField());
+  const [district, setDistrict] = useState(emptyField());
   const [lgdCode, setLgdCode] = useState(emptyField());
+  const [bodyType, setBodyType] = useState<"PANCHAYAT" | "MUNICIPAL_CORPORATION">("MUNICIPAL_CORPORATION");
   const [instEmail, setInstEmail] = useState(emptyField());
   const [universityName, setUniversityName] = useState(emptyField());
   const [designation, setDesignation] = useState(emptyField());
@@ -66,7 +68,7 @@ export default function OnboardingPage() {
       case "citizen":
         return phone.value.trim().length >= 10;
       case "mc_panchayat":
-        return govEmailValid && lgdCode.value.trim().length > 0;
+        return govEmailValid && lgdCode.value.trim().length > 0 && district.value.trim().length > 0;
       case "university":
         return instEmailValid && universityName.value.trim().length > 0;
       case "company":
@@ -95,7 +97,9 @@ export default function OnboardingPage() {
           fullName: fullName.value,
           phone: phone.value,
           govEmail: govEmail.value,
+          district: district.value,
           lgdCode: lgdCode.value,
+          bodyType,
           instEmail: instEmail.value,
           universityName: universityName.value,
           designation: designation.value,
@@ -106,16 +110,20 @@ export default function OnboardingPage() {
           udyam: udyam.value,
         }),
       });
+
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? "Something went wrong. Please try again.");
       }
-      const dest = {
-        citizen: "/my-reports",
-        mc_panchayat: "/mc-panchayat/inbox",
-        university: "/university/shortlist",
-        company: "/company/marketplace",
-      }[role as string] ?? "/";
+
+      const dest =
+        {
+          citizen: "/my-reports",
+          mc_panchayat: "/mc-panchayat/inbox",
+          university: "/university/shortlist",
+          company: "/company/marketplace",
+        }[role as string] ?? "/";
+
       router.push(dest);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Something went wrong.");
@@ -129,7 +137,7 @@ export default function OnboardingPage() {
       <div className="max-w-lg w-full">
         <h1 className="text-2xl font-bold text-white mb-2">Finish setting up your account</h1>
         <p className="text-sm text-slate-400 mb-8">
-          A few details so we can route things to the right place.
+          A few details so we can route things to the right place and sync your profile.
         </p>
 
         <div className="space-y-5">
@@ -143,7 +151,7 @@ export default function OnboardingPage() {
           </Field>
 
           {role === "citizen" && (
-            <Field label="Phone number" hint="We'll send an OTP to verify this number.">
+            <Field label="Phone number">
               <input
                 className="onboarding-input"
                 value={phone.value}
@@ -156,6 +164,16 @@ export default function OnboardingPage() {
 
           {role === "mc_panchayat" && (
             <>
+              <Field label="Body Type">
+                <select
+                  className="onboarding-input"
+                  value={bodyType}
+                  onChange={(e) => setBodyType(e.target.value as "PANCHAYAT" | "MUNICIPAL_CORPORATION")}
+                >
+                  <option value="MUNICIPAL_CORPORATION">Municipal Corporation / Urban Local Body</option>
+                  <option value="PANCHAYAT">Gram Panchayat / Rural Local Body</option>
+                </select>
+              </Field>
               <Field
                 label="Official government email"
                 hint="Must be a .gov.in or .nic.in address."
@@ -166,6 +184,14 @@ export default function OnboardingPage() {
                   value={govEmail.value}
                   onChange={(e) => setGovEmail({ value: e.target.value, touched: true })}
                   placeholder="name@yourdistrict.gov.in"
+                />
+              </Field>
+              <Field label="District">
+                <input
+                  className="onboarding-input"
+                  value={district.value}
+                  onChange={(e) => setDistrict({ value: e.target.value, touched: true })}
+                  placeholder="e.g. Pune, Howrah"
                 />
               </Field>
               <Field label="Jurisdiction (LGD code)" hint="Your official Local Government Directory code.">
@@ -206,6 +232,7 @@ export default function OnboardingPage() {
                   className="onboarding-input"
                   value={designation.value}
                   onChange={(e) => setDesignation({ value: e.target.value, touched: true })}
+                  placeholder="e.g. Associate Professor"
                 />
               </Field>
             </>
@@ -218,6 +245,7 @@ export default function OnboardingPage() {
                   className="onboarding-input"
                   value={companyName.value}
                   onChange={(e) => setCompanyName({ value: e.target.value, touched: true })}
+                  placeholder="Official entity name"
                 />
               </Field>
               <Field
@@ -273,10 +301,6 @@ export default function OnboardingPage() {
                   Provide at least one of GSTIN, CIN, or Udyam Registration Number.
                 </p>
               )}
-              <p className="text-xs text-slate-500 leading-relaxed">
-                These are format-checked now for free. Full verification against government
-                records happens later, when a project reaches the funding stage.
-              </p>
             </>
           )}
 
@@ -285,7 +309,7 @@ export default function OnboardingPage() {
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
-            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold transition-all"
+            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-semibold transition-all cursor-pointer"
           >
             {submitting ? "Saving…" : "Complete sign-up"}
           </button>
