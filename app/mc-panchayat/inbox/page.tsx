@@ -1,3 +1,4 @@
+ 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -5,14 +6,14 @@ import Link from "next/link";
 import { 
   FileSpreadsheet, 
   AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
   GraduationCap, 
   MapPin, 
   Building, 
   ShieldCheck,
   ChevronRight,
-  Filter
+  Filter,
+  PieChart,
+  Sparkles
 } from "lucide-react";
 
 export default async function MCInboxPage() {
@@ -82,7 +83,7 @@ export default async function MCInboxPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-6">
         
         {/* Header Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
@@ -111,6 +112,44 @@ export default async function MCInboxPage() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Jurisdiction Live Sync Active
           </div>
+        </div>
+
+        {/* 🌟 MUNICIPAL PORTAL SUB-NAVIGATION MENU (STRICTLY CHECKS isModerator) */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800">
+          {/* Tab 1: Inbox */}
+          <Link
+            href="/mc-panchayat/inbox"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white shadow-md shadow-indigo-600/20 flex items-center gap-2"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Inbox
+          </Link>
+
+          {/* Tab 2: Analytics Overview */}
+          <Link
+            href="/mc-panchayat/overview"
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-950 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-all flex items-center gap-2"
+          >
+            <PieChart className="w-4 h-4 text-sky-400" /> Analytics Overview
+          </Link>
+
+          {/* Tab 3 & 4: ONLY RENDERED IF localBody.isModerator === true IN DATABASE */}
+          {localBody.isModerator && (
+            <>
+              <Link
+                href="/moderator/onboarding-gaps"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-950 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-all flex items-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-400" /> Moderator: Onboarding Gaps
+              </Link>
+
+              <Link
+                href="/moderator/low-confidence"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-950 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 transition-all flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-purple-400" /> Moderator: AI Review
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Analytics Stats */}

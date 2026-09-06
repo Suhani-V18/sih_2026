@@ -332,9 +332,11 @@ model Company {
 
   universityMatches UniversityCompanyMatch[]
   fundings          ProjectFunding[]
-
+  pitchedProjects   Project[] @relation("PitchedProjects") 
   @@index([region])
   @@map("companies")
+  
+  ProjectPitch ProjectPitch[]
 }
 
 // =====================================================================
@@ -396,6 +398,11 @@ model Project {
   departmentId BigInt?               @map("department_id")
   department   UniversityDepartment? @relation(fields: [departmentId], references: [id])
 
+  // NEW — which company the current Gate 1/Gate 2 pitch is with.
+  // Null once again after a decline, so the university can pick someone else.
+  pitchedCompanyId BigInt?  @map("pitched_company_id")
+  pitchedCompany   Company? @relation("PitchedProjects", fields: [pitchedCompanyId], references: [id])
+
   stage ProjectStage @default(ACCEPTED)
 
   proposalText   String?  @map("proposal_text")
@@ -412,9 +419,36 @@ model Project {
   comments   ProjectComment[]
 
   @@index([universityId])
+  @@index([pitchedCompanyId])
   @@map("projects")
+  ProjectPitch ProjectPitch[]
+}
+enum PitchStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED   // set automatically on all others once one company accepts
 }
 
+model ProjectPitch {
+  id           BigInt      @id @default(autoincrement())
+  projectId    BigInt      @map("project_id")
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  companyId    BigInt      @map("company_id")
+  company      Company     @relation(fields: [companyId], references: [id])
+
+  matchScore   Decimal?    @map("match_score") @db.Decimal(5, 4)
+  matchReasons String[]    @default([]) @map("match_reasons")
+
+  status       PitchStatus @default(PENDING)
+  respondedAt  DateTime?   @map("responded_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@unique([projectId, companyId])
+  @@index([projectId])
+  @@index([companyId])
+  @@map("project_pitches")
+}
 model Milestone {
   id        BigInt  @id @default(autoincrement())
   projectId BigInt  @map("project_id")
