@@ -1,3 +1,4 @@
+// app/api/projects/[id]/broadcast/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +15,8 @@ export async function POST(
 
     const { id } = await params;
     const body = await req.json();
-    const { proposalText, pitchDeckUrl } = body;
+    const { proposalText, pitchDeckUrl, companyIds } = body;
+    // companyIds: optional string[] — if omitted, broadcast to every AI match
     const projectId = BigInt(id);
 
     const member = await prisma.universityMember.findUnique({ where: { clerkUserId: userId } });
@@ -23,18 +25,18 @@ export async function POST(
       return NextResponse.json({ error: "Project not found for your university." }, { status: 404 });
     }
 
-    // Pull real AI-scored candidates instead of a hardcoded top-3.
     const matches = await prisma.universityCompanyMatch.findMany({
-      where: { universityId: project.universityId, status: { not: "REJECTED" } },
+      where: {
+        universityId: project.universityId,
+        status: { not: "REJECTED" },
+        ...(companyIds?.length ? { companyId: { in: companyIds.map(BigInt) } } : {}),
+      },
       orderBy: { matchScore: "desc" },
-      take: 10, // broadcast ceiling — tune as needed
+      take: 10,
     });
 
     if (matches.length === 0) {
-      return NextResponse.json(
-        { error: "No qualifying companies found for your university yet." },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "No companies selected to pitch to." }, { status: 409 });
     }
 
     await prisma.$transaction([
@@ -42,8 +44,6 @@ export async function POST(
         where: { id: projectId },
         data: { stage: "GATE1_PROPOSAL", proposalText, pitchDeckUrl },
       }),
-      // Create a pitch per matched company. skipDuplicates handles a
-      // re-broadcast without erroring on companies already pitched.
       prisma.projectPitch.createMany({
         data: matches.map((m) => ({
           projectId,
