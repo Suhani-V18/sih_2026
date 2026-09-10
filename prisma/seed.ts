@@ -248,14 +248,63 @@ async function main() {
       status: ProblemStatus.VALIDATED,
     },
   });
-
+  const problem4 = await prisma.problem.create({
+    data: {
+      problemCode: "PRB-2024-004",
+      submitterType: SubmitterType.CITIZEN,
+      citizenId: citizen.id,
+      title: "Repeated Garbage Overflow Near Community Park",
+      descriptionType: DescriptionType.TEXT,
+      descriptionText:
+        "Garbage frequently overflows near the community park despite existing municipal collection schedules and bins.",
+      language: "en",
+      district: "Howrah",
+      ward: "Ward 12",
+      lat: 22.5951,
+      lng: 88.2672,
+      addressText: "Community Park Road, Ward 12, Howrah",
+      matchedBodyId: mcBody.id,
+      jurisdictionMatchStatus: "MATCHED",
+  
+      aiCategory: "Municipal Waste Management",
+      aiSeverity: 2,
+      aiConfidence: 0.76,
+  
+      // Two other universities have already flagged it.
+      nonInnovativeCount: 2,
+  
+      status: ProblemStatus.ASSIGNED,
+    },
+  });
   // =========================================================================
   // 6. SEED AI MATCHES
   // =========================================================================
   console.log("6. Seeding AI matches (problem→university, university→company)...");
-
+await prisma.problemUniversityMatch.create({
+  data: {
+    problemId: problem4.id,
+    universityId: university.id,
+    departmentId: department.id,
+    matchScore: 0.76,
+    matchReasons: ["domain_overlap"],
+    status: MatchStatus.NON_INNOVATIVE,
+    decidedAt: new Date(),
+  },
+});
   // problem2 → already ACCEPTED by the university, so a Project exists for
   // it (below) — this is the one you'll use to test BROADCASTING to companies.
+  // problem1 → already ACCEPTED because Project B exists
+await prisma.problemUniversityMatch.create({
+  data: {
+    problemId: problem1.id,
+    universityId: university.id,
+    departmentId: department.id,
+    matchScore: 0.945,
+    matchReasons: ["domain_overlap", "proximity", "track_record"],
+    status: MatchStatus.ACCEPTED,
+    decidedAt: new Date(),
+  },
+});
   await prisma.problemUniversityMatch.create({
     data: {
       problemId: problem2.id,

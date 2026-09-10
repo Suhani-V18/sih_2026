@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle, ArrowRight, ShieldCheck } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowRight, ShieldCheck, Clock } from "lucide-react";
 
 export default function CSRGateActions({
   projectId,
@@ -61,6 +61,15 @@ export default function CSRGateActions({
   // GATE 2 DETAILED PITCH REVIEW CONTROLS
   if (stage === "GATE2_PITCH") {
     return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl">
+        <Clock className="w-4 h-4" /> Waiting on university's detailed Gate 2 pitch
+      </span>
+    );
+  }
+
+  // FUNDED / IN PROGRESS
+  if (stage === "GATE2_SUBMITTED") {
+    return (
       <div className="flex items-center gap-2">
         <button
           disabled={loading}
@@ -72,8 +81,6 @@ export default function CSRGateActions({
       </div>
     );
   }
-
-  // FUNDED / IN PROGRESS
   return (
     <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl">
       <CheckCircle2 className="w-4 h-4" /> CSR Capital Committed

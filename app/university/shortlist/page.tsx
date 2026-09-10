@@ -2,15 +2,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+
 import Link from "next/link";
-import {
-  GraduationCap,
-  Award,
-  Sparkles,
-  FolderKanban,
-  Layers,
-  CheckCircle2
-} from "lucide-react";
+// add Ban to the lucide-react import
+import { GraduationCap, Award, Sparkles, FolderKanban, Layers, CheckCircle2, Ban } from "lucide-react";
 import ShortlistActions from "./shortlist-actions";
 import StartProposalButton from "./start-proposal-button";
 
@@ -61,6 +56,7 @@ export default async function UniversityShortlistPage() {
     JSON.stringify(rawProblems, (k, v) => (typeof v === "bigint" ? v.toString() : v))
   );
 
+  
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -122,11 +118,11 @@ export default async function UniversityShortlistPage() {
 
           <div className="grid grid-cols-1 gap-6">
             {problems.map((problem: any) => {
-              const matchRecord = problem.universityMatches?.[0];
-              const matchStatus = matchRecord?.status || (problem.project ? "ACCEPTED" : "SUGGESTED");
-              const isAccepted = matchStatus === "ACCEPTED";
-              const myProject = problem.project?.universityId === member.universityId.toString() ? problem.project : null;
-
+             const matchRecord = problem.universityMatches?.[0];
+             const matchStatus = matchRecord?.status || (problem.project ? "ACCEPTED" : "SUGGESTED");
+             const isAccepted = matchStatus === "ACCEPTED";
+             const iMarkedNonInnovative = matchStatus === "NON_INNOVATIVE";
+             const myProject = problem.project?.universityId === member.universityId.toString() ? problem.project : null;
               return (
                 <div
                   key={problem.id}
@@ -155,8 +151,19 @@ export default async function UniversityShortlistPage() {
                     <h3 className="text-base font-bold text-white mb-2">{problem.title}</h3>
                     <p className="text-xs text-slate-400 leading-relaxed">{problem.descriptionText}</p>
                   </div>
-
-                  {!isAccepted ? (
+                  {iMarkedNonInnovative ? (
+  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
+    <div>
+      <span className="text-xs font-bold text-orange-400 flex items-center gap-1.5 mb-0.5">
+        <Ban className="w-3.5 h-3.5" /> You marked this non-innovative
+      </span>
+      <p className="text-[11px] text-slate-400">
+        {problem.nonInnovativeCount}/3 universities have flagged this problem.
+      </p>
+    </div>
+  </div>
+) :
+                  !isAccepted ? (
                     <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5 mb-0.5">

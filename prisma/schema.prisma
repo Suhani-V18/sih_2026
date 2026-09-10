@@ -50,8 +50,8 @@ enum ProblemStatus {
   ASSIGNED
   IN_PROGRESS
   RESOLVED
+  NON_INNOVATIVE   // new terminal state
 }
-
 enum CompanyIdType {
   GSTIN
   CIN
@@ -62,12 +62,13 @@ enum MatchStatus {
   SUGGESTED
   ACCEPTED
   REJECTED
+   NON_INNOVATIVE   
 }
-
 enum ProjectStage {
   ACCEPTED
   GATE1_PROPOSAL
   GATE2_PITCH
+  GATE2_SUBMITTED    
   FUNDED
   IN_PROGRESS
   COMPLETED
@@ -208,6 +209,7 @@ model Problem {
   @@index([submittedByBodyId])
   @@index([needsModeratorReview])
   @@map("problems")
+  nonInnovativeCount Int @default(0) @map("non_innovative_count")
 }
 model JurisdictionNotification {
   id            BigInt   @id @default(autoincrement())
@@ -227,7 +229,7 @@ model ProblemMedia {
   mediaType MediaType @map("media_type")
   url       String
   createdAt DateTime  @default(now()) @map("created_at")
-
+  
   @@index([problemId])
   @@map("problem_media")
 }
@@ -398,15 +400,14 @@ model Project {
   departmentId BigInt?               @map("department_id")
   department   UniversityDepartment? @relation(fields: [departmentId], references: [id])
 
-  // NEW — which company the current Gate 1/Gate 2 pitch is with.
-  // Null once again after a decline, so the university can pick someone else.
   pitchedCompanyId BigInt?  @map("pitched_company_id")
   pitchedCompany   Company? @relation("PitchedProjects", fields: [pitchedCompanyId], references: [id])
 
   stage ProjectStage @default(ACCEPTED)
 
-  proposalText   String?  @map("proposal_text")
-  budgetEstimate Decimal? @map("budget_estimate")
+  proposalText     String?  @map("proposal_text")
+  gate2Description String?  @map("gate2_description")
+  budgetEstimate   Decimal? @map("budget_estimate")
 
   pitchDeckUrl  String? @map("pitch_deck_url")
   pitchVideoUrl String? @map("pitch_video_url")

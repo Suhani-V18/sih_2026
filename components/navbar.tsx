@@ -11,7 +11,11 @@ export default function Navbar() {
   const { isSignedIn, isLoaded } = useUser();
 
   // Hide Navbar on the main landing page ("/")
-  if (pathname === "/") {
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/sign-in") ||
+    pathname.startsWith("/sign-up")
+  ){
     return null;
   }
 
@@ -31,12 +35,7 @@ export default function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <Link
-            href="/submit"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20"
-          >
-            <PlusCircle className="w-4 h-4" /> Report Issue
-          </Link>
+          
 
           {isLoaded && (
             <>

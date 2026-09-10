@@ -21,9 +21,8 @@ export default function GateWorkflow({
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Default: every AI-recommended company is checked. Faculty can uncheck
-  // ones they don't want to pitch to before broadcasting.
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(
     new Set(recommendedCompanies.map((c) => c.id))
   );
@@ -35,6 +34,9 @@ export default function GateWorkflow({
     project.pitchDeckUrl || ""
   );
 
+  const [gate2Description, setGate2Description] = useState(
+    project.gate2Description || ""
+  );
   const [gate2PitchDeck, setGate2PitchDeck] = useState(project.pitchDeckUrl || "");
   const [gate2VideoDemo, setGate2VideoDemo] = useState(project.pitchVideoUrl || "");
   const [budgetEstimate, setBudgetEstimate] = useState(project.budgetEstimate || "");
@@ -78,21 +80,29 @@ export default function GateWorkflow({
   async function handleGate2Submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitSuccess(false);
     try {
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          stage: "GATE2_PITCH",
-          proposalText: gate1Concept,
+          gate2Description,
           budgetEstimate: Number(budgetEstimate),
           pitchDeckUrl: gate2PitchDeck,
           pitchVideoUrl: gate2VideoDemo,
         }),
       });
-      if (res.ok) router.refresh();
+      if (res.ok) {
+        setSubmitSuccess(true);
+        router.refresh();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        console.error("Gate 2 submission failed:", body);
+        alert(body.error ?? "Failed to submit Gate 2. Check console for details.");
+      }
     } catch (err) {
       console.error("Gate 2 submission error:", err);
+      alert("Network error while submitting Gate 2.");
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +110,7 @@ export default function GateWorkflow({
 
   return (
     <div className="space-y-6">
-      {/* Pipeline header — unchanged from before */}
+      {/* Pipeline header */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
         <h2 className="text-sm font-bold text-white uppercase tracking-wider">
           R&D Incubation Pipeline Status
@@ -117,21 +127,35 @@ export default function GateWorkflow({
             </div>
             <p className="text-[11px] opacity-80">Broadcast to AI-recommended sponsors</p>
           </div>
+
           <div className={`p-4 rounded-xl border ${
             stage === "GATE2_PITCH"
               ? "bg-purple-950/40 border-purple-500/50 text-purple-200 shadow-lg shadow-purple-500/10"
-              : stage === "FUNDED" || stage === "IN_PROGRESS"
+              : stage === "GATE2_SUBMITTED" || stage === "FUNDED" || stage === "IN_PROGRESS"
               ? "bg-slate-950 border-slate-800 text-slate-400"
               : "bg-slate-950/60 border-slate-800/60 text-slate-600 opacity-60"
           }`}>
             <div className="flex items-center justify-between font-bold mb-1">
               <span>Gate 2: Detailed Pitch</span>
-              {stage === "GATE2_PITCH" ? <Sparkles className="w-4 h-4 text-amber-400" /> : stage === "FUNDED" ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Lock className="w-4 h-4 text-slate-600" />}
+              {stage === "GATE2_PITCH" ? (
+                <Sparkles className="w-4 h-4 text-amber-400" />
+              ) : stage === "GATE2_SUBMITTED" ? (
+                <Clock className="w-4 h-4 text-amber-400" />
+              ) : stage === "FUNDED" || stage === "IN_PROGRESS" ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Lock className="w-4 h-4 text-slate-600" />
+              )}
             </div>
             <p className="text-[11px] opacity-80">
-              {stage === "GATE1_PROPOSAL" ? "Locked (awaiting a company to accept)" : "Detailed PPT, demo video & milestones"}
+              {stage === "GATE1_PROPOSAL"
+                ? "Locked (awaiting a company to accept)"
+                : stage === "GATE2_SUBMITTED"
+                ? "Submitted — awaiting sponsor review"
+                : "Detailed PPT, demo video & milestones"}
             </p>
           </div>
+
           <div className={`p-4 rounded-xl border ${
             stage === "FUNDED" || stage === "IN_PROGRESS"
               ? "bg-emerald-950/40 border-emerald-500/50 text-emerald-200"
@@ -234,7 +258,7 @@ export default function GateWorkflow({
         </form>
       )}
 
-      {/* PHASE 2 — awaiting responses */}
+      {/* PHASE 2 — awaiting responses to Gate 1 */}
       {stage === "GATE1_PROPOSAL" && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
           <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-xs text-amber-300">
@@ -252,7 +276,7 @@ export default function GateWorkflow({
         </div>
       )}
 
-      {/* PHASE 3 — Gate 2, unchanged */}
+      {/* PHASE 3 — Gate 2 form */}
       {stage === "GATE2_PITCH" && (
         <form onSubmit={handleGate2Submit} className="bg-slate-900 border border-purple-500/40 rounded-2xl p-6 space-y-5 shadow-2xl shadow-purple-950/30">
           <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
@@ -263,6 +287,26 @@ export default function GateWorkflow({
               <h3 className="text-base font-bold text-white">🎉 A sponsor accepted Gate 1! Submit Gate 2</h3>
               <p className="text-xs text-purple-300">Upload your detailed PPT, demo video, and budget.</p>
             </div>
+          </div>
+
+          {submitSuccess && (
+            <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-3 text-xs text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              Gate 2 details saved successfully.
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              Detailed Solution Description *
+            </label>
+            <textarea
+              rows={4}
+              required
+              value={gate2Description}
+              onChange={(e) => setGate2Description(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
 
           <div>
@@ -294,7 +338,25 @@ export default function GateWorkflow({
         </form>
       )}
 
-      {/* PHASE 4 — funded, unchanged */}
+      {/* PHASE 3.5 — Gate 2 submitted, awaiting sponsor decision */}
+      {stage === "GATE2_SUBMITTED" && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-xs text-amber-300">
+            <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block text-amber-200 text-sm mb-1">
+                Gate 2 submitted — awaiting sponsor review
+              </span>
+              <p className="text-slate-300 leading-relaxed">
+                Your detailed pitch, deck, and budget have been sent to the sponsoring company.
+                You'll be notified once they approve funding.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 4 — funded */}
       {(stage === "FUNDED" || stage === "IN_PROGRESS") && (
         <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-3 border-b border-slate-800 pb-3">

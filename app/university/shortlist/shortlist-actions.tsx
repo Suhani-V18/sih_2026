@@ -1,22 +1,29 @@
- 
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle, Star } from "lucide-react";
+import { XCircle } from "lucide-react";
+// add Ban to the lucide-react import
+import { Star } from "lucide-react";
+import { GraduationCap, Award, Sparkles, FolderKanban, Layers, CheckCircle2, Ban } from "lucide-react";
+import { isLowConfidenceMatch } from "@/lib/classification";
 
 export default function ShortlistActions({
   problemId,
   universityId,
+  aiConfidence,
 }: {
   problemId: string;
   universityId: string;
+  aiConfidence?: number | string | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [isShortlisted, setIsShortlisted] = useState(false);
 
-  async function handleDecision(status: "ACCEPTED" | "REJECTED" | "SUGGESTED") {
+  const showNonInnovative = isLowConfidenceMatch(aiConfidence as number);
+
+  async function handleDecision(status: "ACCEPTED" | "REJECTED" | "SUGGESTED" | "NON_INNOVATIVE") {
     setLoading(true);
     try {
       const res = await fetch("/api/matches/university", {
@@ -24,7 +31,6 @@ export default function ShortlistActions({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ problemId, universityId, status }),
       });
-
       if (res.ok) {
         if (status === "SUGGESTED") {
           setIsShortlisted(true);
@@ -41,7 +47,6 @@ export default function ShortlistActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2 shrink-0">
-      {/* 1. Decline Button */}
       <button
         disabled={loading}
         onClick={() => handleDecision("REJECTED")}
@@ -50,7 +55,6 @@ export default function ShortlistActions({
         <XCircle className="w-4 h-4" /> Decline
       </button>
 
-      {/* 2. ⭐ Shortlist Bookmark Button */}
       <button
         disabled={loading}
         onClick={() => handleDecision("SUGGESTED")}
@@ -64,7 +68,16 @@ export default function ShortlistActions({
         {isShortlisted ? "Shortlisted" : "Shortlist"}
       </button>
 
-      {/* 3. Accept & Start Button */}
+      {showNonInnovative && (
+        <button
+          disabled={loading}
+          onClick={() => handleDecision("NON_INNOVATIVE")}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-orange-400 bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+        >
+          <Ban className="w-4 h-4" /> Mark Non-Innovative
+        </button>
+      )}
+
       <button
         disabled={loading}
         onClick={() => handleDecision("ACCEPTED")}
