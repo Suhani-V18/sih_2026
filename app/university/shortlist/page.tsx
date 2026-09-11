@@ -141,9 +141,11 @@ export default async function UniversityShortlistPage() {
                           Stage: {myProject.stage}
                         </span>
                       )}
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
-                        <Sparkles className="w-3 h-3 text-purple-400" /> 94.5% AI Match
-                      </span>
+                   {problem.aiConfidence != null && (
+  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
+    <Sparkles className="w-3 h-3 text-purple-400" /> {(Number(problem.aiConfidence) * 100).toFixed(1)}% AI Match
+  </span>
+)}
                     </div>
                   </div>
 
@@ -173,9 +175,10 @@ export default async function UniversityShortlistPage() {
                       </div>
 
                       <ShortlistActions
-                        problemId={problem.id}
-                        universityId={member.universityId.toString()}
-                      />
+  problemId={problem.id}
+  universityId={member.universityId.toString()}
+  aiConfidence={problem.aiConfidence}
+/>
                     </div>
                   ) : myProject ? (
                     <div className="bg-purple-950/30 border border-purple-500/40 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

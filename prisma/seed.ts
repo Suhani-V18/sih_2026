@@ -7,7 +7,8 @@ import {
   ProjectStage,
   MilestoneStatus,
   CompanyIdType,
-  MatchStatus,
+  ProblemMatchStatus,
+  CompanyMatchStatus,
   PitchStatus,
 } from "@prisma/client";
 
@@ -33,7 +34,7 @@ async function main() {
   await prisma.milestone.deleteMany();
   await prisma.projectFunding.deleteMany();
   await prisma.projectComment.deleteMany();
-  await prisma.projectPitch.deleteMany(); // NEW — clear before projects
+  await prisma.projectPitch.deleteMany();
   await prisma.project.deleteMany();
   await prisma.problemUniversityMatch.deleteMany();
   await prisma.universityCompanyMatch.deleteMany();
@@ -157,7 +158,6 @@ async function main() {
     },
   });
 
-  // A second company so the broadcast list has more than one option to show.
   const companyTwo = await prisma.company.create({
     data: {
       companyCode: "CSR-AQUA-002",
@@ -248,6 +248,7 @@ async function main() {
       status: ProblemStatus.VALIDATED,
     },
   });
+
   const problem4 = await prisma.problem.create({
     data: {
       problemCode: "PRB-2024-004",
@@ -265,21 +266,57 @@ async function main() {
       addressText: "Community Park Road, Ward 12, Howrah",
       matchedBodyId: mcBody.id,
       jurisdictionMatchStatus: "MATCHED",
-  
+
       aiCategory: "Municipal Waste Management",
       aiSeverity: 2,
-      aiConfidence: 0.76,
-  
+      aiConfidence: 0.62,
+
       // Two other universities have already flagged it.
       nonInnovativeCount: 2,
-  
+
       status: ProblemStatus.ASSIGNED,
     },
   });
+
+  const problem5 = await prisma.problem.create({
+    data: {
+      problemCode: "PRB-2024-005",
+      submitterType: SubmitterType.CITIZEN,
+      citizenId: citizen.id,
+      title: "Broken Streetlight Near Bus Stop Causing Safety Concerns",
+      descriptionType: DescriptionType.TEXT,
+      descriptionText:
+        "Streetlight has been non-functional for over 3 weeks near the main bus stop, making the area unsafe after dark.",
+      language: "en",
+      district: "Howrah",
+      ward: "Ward 12",
+      lat: 22.5967,
+      lng: 88.2689,
+      addressText: "Main Bus Stop, Ward 12, Howrah",
+      matchedBodyId: mcBody.id,
+      jurisdictionMatchStatus: "MATCHED",
+
+      aiCategory: "Municipal Electrical Maintenance",
+      aiSeverity: 1,
+      aiConfidence: 0.62, // low confidence -> "Mark Non-Innovative" button should show
+
+      // No votes yet — this is the "below threshold" starting state.
+      nonInnovativeCount: 0,
+
+      status: ProblemStatus.PENDING_REVIEW,
+    },
+  });
+
   // =========================================================================
   // 6. SEED AI MATCHES
   // =========================================================================
   console.log("6. Seeding AI matches (problem→university, university→company)...");
+
+  // problem4 → already at 2/3 non-innovative votes — one more click auto-rejects it.
+  // problem4 → already at 2/3 non-innovative votes (from two OTHER universities,
+// not represented as separate seed rows here). THIS university's own match is
+// still fresh/SUGGESTED — the button is live, and clicking it should push the
+// count 2 -> 3 and auto-flip Problem.status to NON_INNOVATIVE.
 await prisma.problemUniversityMatch.create({
   data: {
     problemId: problem4.id,
@@ -287,24 +324,24 @@ await prisma.problemUniversityMatch.create({
     departmentId: department.id,
     matchScore: 0.76,
     matchReasons: ["domain_overlap"],
-    status: MatchStatus.NON_INNOVATIVE,
-    decidedAt: new Date(),
+    status: ProblemMatchStatus.SUGGESTED,
   },
 });
+  // problem1 → already ACCEPTED because Project B exists
+  await prisma.problemUniversityMatch.create({
+    data: {
+      problemId: problem1.id,
+      universityId: university.id,
+      departmentId: department.id,
+      matchScore: 0.945,
+      matchReasons: ["domain_overlap", "proximity", "track_record"],
+      status: ProblemMatchStatus.ACCEPTED,
+      decidedAt: new Date(),
+    },
+  });
+
   // problem2 → already ACCEPTED by the university, so a Project exists for
   // it (below) — this is the one you'll use to test BROADCASTING to companies.
-  // problem1 → already ACCEPTED because Project B exists
-await prisma.problemUniversityMatch.create({
-  data: {
-    problemId: problem1.id,
-    universityId: university.id,
-    departmentId: department.id,
-    matchScore: 0.945,
-    matchReasons: ["domain_overlap", "proximity", "track_record"],
-    status: MatchStatus.ACCEPTED,
-    decidedAt: new Date(),
-  },
-});
   await prisma.problemUniversityMatch.create({
     data: {
       problemId: problem2.id,
@@ -312,13 +349,13 @@ await prisma.problemUniversityMatch.create({
       departmentId: department.id,
       matchScore: 0.94,
       matchReasons: ["domain_overlap", "proximity", "track_record"],
-      status: MatchStatus.ACCEPTED,
+      status: ProblemMatchStatus.ACCEPTED,
       decidedAt: new Date(),
     },
   });
 
   // problem3 → still SUGGESTED, not yet acted on — use this one to test the
-  // Accept/Decline/Shortlist buttons on /university/shortlist.
+  // Accept/Decline buttons on /university/shortlist.
   await prisma.problemUniversityMatch.create({
     data: {
       problemId: problem3.id,
@@ -326,7 +363,21 @@ await prisma.problemUniversityMatch.create({
       departmentId: department.id,
       matchScore: 0.81,
       matchReasons: ["domain_overlap", "proximity"],
-      status: MatchStatus.SUGGESTED,
+      status: ProblemMatchStatus.SUGGESTED,
+    },
+  });
+
+  // problem5 → still SUGGESTED, low confidence, zero non-innovative votes yet.
+  // Use this one to test the "Mark Non-Innovative" button appearing on a
+  // fresh/undecided match, and watch nonInnovativeCount tick 0 -> 1 on click.
+  await prisma.problemUniversityMatch.create({
+    data: {
+      problemId: problem5.id,
+      universityId: university.id,
+      departmentId: department.id,
+      matchScore: 0.62,
+      matchReasons: ["partial_domain_overlap"],
+      status: ProblemMatchStatus.SUGGESTED,
     },
   });
 
@@ -339,7 +390,7 @@ await prisma.problemUniversityMatch.create({
       companyId: company.id,
       matchScore: 0.91,
       matchReasons: ["domain_overlap", "high_trust_score", "track_record"],
-      status: MatchStatus.SUGGESTED,
+      status: CompanyMatchStatus.SUGGESTED,
     },
   });
 
@@ -349,7 +400,7 @@ await prisma.problemUniversityMatch.create({
       companyId: companyTwo.id,
       matchScore: 0.77,
       matchReasons: ["domain_overlap", "same_region"],
-      status: MatchStatus.SUGGESTED,
+      status: CompanyMatchStatus.SUGGESTED,
     },
   });
 
@@ -440,6 +491,8 @@ await prisma.problemUniversityMatch.create({
   console.log("");
   console.log("Test paths:");
   console.log("  • As FACULTY → /university/shortlist → accept/decline problem3");
+  console.log("  • As FACULTY → /university/shortlist → problem5 (low confidence, 0 votes) → click Mark Non-Innovative, watch count go 0→1");
+  console.log("  • As FACULTY → problem4 is already at 2/3 non-innovative votes → one more click auto-rejects it");
   console.log("  • As FACULTY → open problem2's project → Broadcast Gate 1 to 2 companies");
   console.log("  • As COMPANY (Tata) → /company/matched → review & fund problem1's project (already at Gate 2)");
 }

@@ -6,13 +6,15 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// =====================================================================
+// ENUMS
+// =====================================================================
+
 enum AreaType {
   RURAL
   URBAN
 }
-// =====================================================================
-// ENUMS
-// =====================================================================
 
 enum SubmitterType {
   CITIZEN
@@ -50,25 +52,37 @@ enum ProblemStatus {
   ASSIGNED
   IN_PROGRESS
   RESOLVED
-  NON_INNOVATIVE   // new terminal state
+  NON_INNOVATIVE // terminal state — reached when 3+ universities flag a problem as non-innovative
 }
+
 enum CompanyIdType {
   GSTIN
   CIN
   UDYAM
 }
 
-enum MatchStatus {
+// Problem <-> University matches. NON_INNOVATIVE only makes sense here,
+// which is exactly why this is now split from CompanyMatchStatus below.
+enum ProblemMatchStatus {
   SUGGESTED
   ACCEPTED
   REJECTED
-   NON_INNOVATIVE   
+  NON_INNOVATIVE
 }
+
+// University <-> Company matches. Deliberately has no NON_INNOVATIVE —
+// a company doesn't "mark a university non-innovative".
+enum CompanyMatchStatus {
+  SUGGESTED
+  ACCEPTED
+  REJECTED
+}
+
 enum ProjectStage {
   ACCEPTED
   GATE1_PROPOSAL
   GATE2_PITCH
-  GATE2_SUBMITTED    
+  GATE2_SUBMITTED
   FUNDED
   IN_PROGRESS
   COMPLETED
@@ -80,6 +94,13 @@ enum MilestoneStatus {
   VERIFIED
   FLAGGED
   RELEASED
+}
+
+enum PitchStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED // set automatically on all others once one company accepts
 }
 
 // =====================================================================
@@ -150,6 +171,7 @@ model JurisdictionDirectory {
 // =====================================================================
 // 3. PROBLEMS (Citizen or Local Body submissions)
 // =====================================================================
+
 model Problem {
   id          BigInt @id @default(autoincrement())
   problemCode String @unique @map("problem_code")
@@ -160,7 +182,7 @@ model Problem {
   submittedByBodyId BigInt?       @map("submitted_by_body_id")
   submittedByBody   LocalBody?    @relation("BodySubmittedProblems", fields: [submittedByBodyId], references: [id])
 
-  title String? // 👈 Made optional for voice input
+  title String? // Made optional for voice input
 
   descriptionType     DescriptionType @map("description_type")
   descriptionText     String?         @map("description_text")
@@ -187,6 +209,7 @@ model Problem {
   aiSeverity           Int?     @map("ai_severity")
   aiConfidence         Decimal? @map("ai_confidence") @db.Decimal(5, 4)
   needsModeratorReview Boolean  @default(false) @map("needs_moderator_review")
+  nonInnovativeCount   Int      @default(0) @map("non_innovative_count")
 
   mergedIntoProblemId BigInt?   @map("merged_into_problem_id")
   mergedIntoProblem   Problem?  @relation("ProblemMerge", fields: [mergedIntoProblemId], references: [id])
@@ -209,8 +232,8 @@ model Problem {
   @@index([submittedByBodyId])
   @@index([needsModeratorReview])
   @@map("problems")
-  nonInnovativeCount Int @default(0) @map("non_innovative_count")
 }
+
 model JurisdictionNotification {
   id            BigInt   @id @default(autoincrement())
   problemId     BigInt   @map("problem_id")
@@ -229,7 +252,7 @@ model ProblemMedia {
   mediaType MediaType @map("media_type")
   url       String
   createdAt DateTime  @default(now()) @map("created_at")
-  
+
   @@index([problemId])
   @@map("problem_media")
 }
@@ -334,11 +357,11 @@ model Company {
 
   universityMatches UniversityCompanyMatch[]
   fundings          ProjectFunding[]
-  pitchedProjects   Project[] @relation("PitchedProjects") 
+  pitchedProjects   Project[]                @relation("PitchedProjects")
+  projectPitches    ProjectPitch[]
+
   @@index([region])
   @@map("companies")
-  
-  ProjectPitch ProjectPitch[]
 }
 
 // =====================================================================
@@ -354,9 +377,9 @@ model ProblemUniversityMatch {
   departmentId BigInt?               @map("department_id")
   department   UniversityDepartment? @relation(fields: [departmentId], references: [id])
 
-  matchScore   Decimal     @map("match_score") @db.Decimal(5, 4)
-  matchReasons String[]    @default([]) @map("match_reasons")
-  status       MatchStatus @default(SUGGESTED)
+  matchScore   Decimal            @map("match_score") @db.Decimal(5, 4)
+  matchReasons String[]           @default([]) @map("match_reasons")
+  status       ProblemMatchStatus @default(SUGGESTED)
 
   suggestedAt DateTime  @default(now()) @map("suggested_at")
   decidedAt   DateTime? @map("decided_at")
@@ -374,9 +397,9 @@ model UniversityCompanyMatch {
   companyId    BigInt     @map("company_id")
   company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  matchScore   Decimal     @map("match_score") @db.Decimal(5, 4)
-  matchReasons String[]    @default([]) @map("match_reasons")
-  status       MatchStatus @default(SUGGESTED)
+  matchScore   Decimal            @map("match_score") @db.Decimal(5, 4)
+  matchReasons String[]           @default([]) @map("match_reasons")
+  status       CompanyMatchStatus @default(SUGGESTED)
 
   suggestedAt DateTime  @default(now()) @map("suggested_at")
   decidedAt   DateTime? @map("decided_at")
@@ -418,38 +441,33 @@ model Project {
   milestones Milestone[]
   fundings   ProjectFunding[]
   comments   ProjectComment[]
+  pitches    ProjectPitch[]
 
   @@index([universityId])
   @@index([pitchedCompanyId])
   @@map("projects")
-  ProjectPitch ProjectPitch[]
-}
-enum PitchStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
-  EXPIRED   // set automatically on all others once one company accepts
 }
 
 model ProjectPitch {
-  id           BigInt      @id @default(autoincrement())
-  projectId    BigInt      @map("project_id")
-  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  companyId    BigInt      @map("company_id")
-  company      Company     @relation(fields: [companyId], references: [id])
+  id        BigInt  @id @default(autoincrement())
+  projectId BigInt  @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  companyId BigInt  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
 
-  matchScore   Decimal?    @map("match_score") @db.Decimal(5, 4)
-  matchReasons String[]    @default([]) @map("match_reasons")
+  matchScore   Decimal? @map("match_score") @db.Decimal(5, 4)
+  matchReasons String[] @default([]) @map("match_reasons")
 
-  status       PitchStatus @default(PENDING)
-  respondedAt  DateTime?   @map("responded_at")
-  createdAt    DateTime    @default(now()) @map("created_at")
+  status      PitchStatus @default(PENDING)
+  respondedAt DateTime?   @map("responded_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
 
   @@unique([projectId, companyId])
   @@index([projectId])
   @@index([companyId])
   @@map("project_pitches")
 }
+
 model Milestone {
   id        BigInt  @id @default(autoincrement())
   projectId BigInt  @map("project_id")

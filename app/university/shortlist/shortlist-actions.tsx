@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { XCircle } from "lucide-react";
-// add Ban to the lucide-react import
-import { Star } from "lucide-react";
-import { GraduationCap, Award, Sparkles, FolderKanban, Layers, CheckCircle2, Ban } from "lucide-react";
+import { XCircle, CheckCircle2, Ban } from "lucide-react";
 import { isLowConfidenceMatch } from "@/lib/classification";
 
 export default function ShortlistActions({
@@ -19,11 +16,12 @@ export default function ShortlistActions({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [isShortlisted, setIsShortlisted] = useState(false);
 
-  const showNonInnovative = isLowConfidenceMatch(aiConfidence as number);
+  const showNonInnovative = isLowConfidenceMatch(
+    aiConfidence !== null && aiConfidence !== undefined ? Number(aiConfidence) : null
+  );
 
-  async function handleDecision(status: "ACCEPTED" | "REJECTED" | "SUGGESTED" | "NON_INNOVATIVE") {
+  async function handleDecision(status: "ACCEPTED" | "REJECTED" | "NON_INNOVATIVE") {
     setLoading(true);
     try {
       const res = await fetch("/api/matches/university", {
@@ -32,11 +30,7 @@ export default function ShortlistActions({
         body: JSON.stringify({ problemId, universityId, status }),
       });
       if (res.ok) {
-        if (status === "SUGGESTED") {
-          setIsShortlisted(true);
-        } else {
-          router.refresh();
-        }
+        router.refresh();
       }
     } catch (err) {
       console.error("Decision error:", err);
@@ -53,19 +47,6 @@ export default function ShortlistActions({
         className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-400 bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
       >
         <XCircle className="w-4 h-4" /> Decline
-      </button>
-
-      <button
-        disabled={loading}
-        onClick={() => handleDecision("SUGGESTED")}
-        className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl border transition-all cursor-pointer disabled:opacity-50 ${
-          isShortlisted
-            ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold"
-            : "bg-slate-900 text-slate-300 border-slate-800 hover:text-amber-300"
-        }`}
-      >
-        <Star className={`w-4 h-4 ${isShortlisted ? "fill-amber-400 text-amber-400" : ""}`} />
-        {isShortlisted ? "Shortlisted" : "Shortlist"}
       </button>
 
       {showNonInnovative && (
