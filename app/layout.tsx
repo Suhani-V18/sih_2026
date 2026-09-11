@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider afterSignOutUrl="/">
       <html lang="en" className="dark">
         <body className="bg-slate-950 text-slate-100 antialiased min-h-screen">
           <Navbar />

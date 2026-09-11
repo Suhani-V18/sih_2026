@@ -47,9 +47,6 @@ export default async function CompanyProjectDetailPage({
     );
   }
 
-  // Ownership check — only the company this project is actually pitched to
-  // (or already funding it) can view/act on it. Without this, any signed-in
-  // company could open any project by guessing its ID.
   const isPitchedToThisCompany = rawProject.pitchedCompanyId === company.id;
   const isFundingThisProject = rawProject.fundings.some((f) => f.companyId === company.id);
   if (!isPitchedToThisCompany && !isFundingThisProject) {
@@ -76,7 +73,6 @@ export default async function CompanyProjectDetailPage({
           <ArrowLeft className="w-4 h-4" /> Back to CSR Marketplace
         </Link>
 
-        {/* Header Bar */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -100,8 +96,6 @@ export default async function CompanyProjectDetailPage({
             </div>
           </div>
 
-          {/* NEW — the actual accept/decline/fund buttons, reusing your
-              existing component instead of a dead "Approve" button */}
           <div className="pt-2 border-t border-slate-800">
             <CSRGateActions
               projectId={project.id}
@@ -111,7 +105,6 @@ export default async function CompanyProjectDetailPage({
           </div>
         </div>
 
-        {/* Proposal & Pitch review */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <FileText className="w-5 h-5 text-emerald-400" /> Review University Proposal & Pitch
@@ -123,7 +116,7 @@ export default async function CompanyProjectDetailPage({
 
           <div className="flex flex-wrap items-center gap-3 text-xs">
             {project.pitchDeckUrl && (
-              
+              <a
                 href={project.pitchDeckUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -133,7 +126,7 @@ export default async function CompanyProjectDetailPage({
               </a>
             )}
             {project.pitchVideoUrl && (
-              
+              <a
                 href={project.pitchVideoUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -145,7 +138,6 @@ export default async function CompanyProjectDetailPage({
           </div>
         </div>
 
-        {/* Milestones — only shown once actually funded */}
         {(project.stage === "FUNDED" || project.stage === "IN_PROGRESS" || project.stage === "COMPLETED") && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h2 className="text-base font-bold text-white flex items-center gap-2">

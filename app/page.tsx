@@ -93,7 +93,7 @@ export default function LandingPage() {
               >
                 Go to Dashboard <ArrowRight className="w-4 h-4" />
               </Link>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton   />
             </>
           )}
         </div>
